@@ -6,3 +6,5 @@ scikit-learn==1.7.1
 statsmodels==0.14.5
 streamlit==1.48.0
 pyodbc
+Plotly==6.3.0
+joblib
