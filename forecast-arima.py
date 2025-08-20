@@ -11,6 +11,7 @@ from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
+st.set_page_config(layout="wide")
 # ---------------------------
 # Load Data from CSV
 # ---------------------------
@@ -82,7 +83,7 @@ def forecast_group(group, server_name, db_name):
     try:
         if selected_model == "ARIMA":
             # load best ARIMA model from pickle
-            final_fit, meta = load_best_arima_model("best_arima_meta.pkl", series=ts)
+            final_fit, meta = load_best_arima_model("best_arima_meta2.pkl", series=ts)
 
             # forecast
             future = final_fit.forecast(steps=forecast_months)
@@ -165,9 +166,9 @@ if not plot_data.empty:
     plot_data["Label"] = plot_data["servername"] + " | " + plot_data["databasename"]
 
     if selected_server == "All Servers" and selected_db == "All Databases":
-        server_capacity = 4
+        server_capacity = 3
     else:
-        server_capacity = 2
+        server_capacity = 3
 
     if chart_type == "Line Chart":
         fig = px.line(
@@ -205,8 +206,15 @@ st.subheader("Forecast Model Metrics")
 if metrics_list:
     metrics_df = pd.DataFrame(metrics_list)[["Model", "RMSE", "MAE", "MAPE (%)"]]
     st.dataframe(metrics_df, use_container_width=True)
+    st.markdown("""
+    **Metric Definitions:**
+    - **RMSE (Root Mean Square Error):** Square root of average squared differences between actual and predicted values.
+    - **MAE (Mean Absolute Error):** Average of absolute differences between actual and predicted values.
+    - **MAPE (Mean Absolute Percentage Error):** Average percentage error between actual and predicted values.
+    """)
 else:
     st.info("No metrics to display (insufficient data).")
+
 
 # ---------------------------
 # Raw + Predicted Data
