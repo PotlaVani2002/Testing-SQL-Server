@@ -176,6 +176,8 @@ if not plot_data.empty:
         hist_data,
         x="Date", y="Growth%",
         line_group="Label",
+        color="Type",  # <-- add this
+        color_discrete_map={"Forecast": "#1f77b4"}, 
         color_discrete_sequence=["#1f77b4"],  # Blue for historical
         markers=True,
         hover_data={
@@ -193,6 +195,8 @@ if not plot_data.empty:
         forecast_data,
         x="Date", y="Growth%",
         line_group="Label",
+        color="Type",  # <-- add this
+        color_discrete_map={"Forecast": "#ff7f0e"}, 
         color_discrete_sequence=["#ff7f0e"],  # Orange for forecast
         markers=True,
         hover_data={
@@ -232,35 +236,40 @@ if not plot_data.empty:
         line=dict(color="red", dash="dot", width=2),
         showlegend=True
     )
-
+    fig.add_hline(y=0, line_color="white") 
+    fig.add_vline(x=plot_data["Date"].min(), line_color="white")
     # Layout styling
     fig.update_layout(
-        title=dict(
-            text="Server-Database Growth Forecast",
-            x=0.4,
-            font=dict(color="black", size=18)
-        ),
-        xaxis=dict(
-            gridcolor="rgba(200, 200, 200, 0.3)",
-            zerolinecolor="rgba(0, 0, 0, 0.2)",
-            title=dict(text="Date", font=dict(color="black", size=18)),
-            tickfont=dict(color="black", size=14)
-        ),
-        yaxis=dict(
-            gridcolor="rgba(200, 200, 200, 0.3)",
-            zerolinecolor="rgba(0, 0, 0, 0.2)",
-            title=dict(text="Growth %", font=dict(color="black", size=18)),
-            tickfont=dict(color="black", size=14)
-        ),
-        plot_bgcolor="rgba(1,3,10, 0.9)",
-        paper_bgcolor="rgb(240, 242, 246)",
-        font=dict(color="black", size=12),
-        legend=dict(
-            bgcolor="rgba(255, 255, 255, 0.6)",
-            bordercolor="rgba(0, 0, 0, 0.1)",
-            borderwidth=1
-        )
+    title=dict(
+        text="Server-Database Growth Forecast",
+        x=0.4,
+        font=dict(color="black", size=18)
+    ),
+    xaxis=dict(
+        showline=True,               # Enable axis line
+        linecolor="white",           # Set line color to white
+        gridcolor="rgba(200, 200, 200, 0.3)",
+        zerolinecolor="rgba(0, 0, 0, 0.2)",
+        title=dict(text="Date", font=dict(color="black", size=18)),
+        tickfont=dict(color="black", size=14)
+    ),
+    yaxis=dict(
+        showline=True,               # Enable axis line
+        linecolor="white",           # Set line color to white
+        gridcolor="rgba(200, 200, 200, 0.3)",
+        zerolinecolor="rgba(0, 0, 0, 0.2)",
+        title=dict(text="Growth %", font=dict(color="black", size=18)),
+        tickfont=dict(color="black", size=14)
+    ),
+    plot_bgcolor="rgba(1,3,10, 0.9)",
+    paper_bgcolor="rgb(240, 242, 246)",
+    font=dict(color="black", size=12),
+    legend=dict(
+        bgcolor="rgba(255, 255, 255, 0.6)",
+        bordercolor="rgba(0, 0, 0, 0.1)",
+        borderwidth=1
     )
+)
 
     st.plotly_chart(fig, use_container_width=True)
 
