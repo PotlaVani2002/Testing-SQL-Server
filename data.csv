@@ -1,4 +1,4 @@
-servername,databasename,used,yr,mn,per
+ServerName,DatabaseName,Size_Used,Year,Month,Growth%
 Server1,DB1,80.00,2021,1,0.114200
 Server1,DB1,56.00,2021,2,0.080000
 Server1,DB1,62.00,2021,3,0.088500

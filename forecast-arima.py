@@ -21,7 +21,7 @@ def load_growth_percentage():
     df = pd.read_csv(file_path)
 
     # Ensure Date column
-    df["Date"] = pd.to_datetime(df["yr"].astype(str) + "-" + df["mn"].astype(str) + "-01")
+    df["Date"] = pd.to_datetime(df["Year"].astype(str) + "-" + df["Month"].astype(str) + "-01")
     return df
 
 
@@ -43,13 +43,13 @@ def load_best_arima_model(meta_file="best_arima_meta.pkl", series=None):
 # ---------------------------
 df = load_growth_percentage()
 
-servers = ["All Servers"] + sorted(df['servername'].unique())
+servers = ["All Servers"] + sorted(df['ServerName'].unique())
 selected_server = st.sidebar.selectbox("Select Server", servers)
 
 if selected_server != "All Servers":
-    db_list = df[df["servername"] == selected_server]['databasename'].unique()
+    db_list = df[df["ServerName"] == selected_server]['DatabaseName'].unique()
 else:
-    db_list = df['databasename'].unique()
+    db_list = df['DatabaseName'].unique()
 
 databases = ["All Databases"] + sorted(db_list)
 selected_db = st.sidebar.selectbox("Select Database", databases)
@@ -60,10 +60,10 @@ selected_model = st.sidebar.selectbox("Select Model", ["ARIMA", "SARIMA"])
 chart_type = st.sidebar.selectbox("Select Chart Type", ["Line Chart", "Bar Chart"])
 
 if selected_server != "All Servers":
-    df = df[df["servername"] == selected_server]
+    df = df[df["ServerName"] == selected_server]
 
 if selected_db != "All Databases":
-    df = df[df["databasename"] == selected_db]
+    df = df[df["DatabaseName"] == selected_db]
 
 st.subheader("Database Growth Forecast")
 
@@ -75,7 +75,7 @@ plot_data = pd.DataFrame()
 # Forecasting Logic
 # ---------------------------
 def forecast_group(group, server_name, db_name):
-    ts = group.set_index("Date")["per"].asfreq("MS").fillna(method="ffill")
+    ts = group.set_index("Date")["Growth%"].asfreq("MS").fillna(method="ffill")
     if len(ts) < 8:
         st.warning(f"Not enough data for {server_name} | {db_name} (need >= 8 months).")
         return pd.DataFrame()
@@ -123,22 +123,22 @@ def forecast_group(group, server_name, db_name):
                                    periods=forecast_months, freq="MS")
         forecast_df = pd.DataFrame({
             "Date": future_idx,
-            "per": future.values,
-            "servername": server_name,
-            "databasename": db_name,
+            "Growth%": future.values,
+            "ServerName": server_name,
+            "DatabaseName": db_name,
             "Type": "Forecast"
         })
-        forecast_df["yr"] = forecast_df["Date"].dt.year
-        forecast_df["mn"] = forecast_df["Date"].dt.month
+        forecast_df["Year"] = forecast_df["Date"].dt.year
+        forecast_df["Month"] = forecast_df["Date"].dt.month
 
         # calculate used from growth %
-        last_used = group["used"].iloc[-1]
+        last_used = group["Size_Used"].iloc[-1]
         used_forecast, current_used = [], last_used
-        for perc in forecast_df["per"]:
+        for perc in forecast_df["Growth%"]:
             growth_value = (perc / 100.0) * current_used
             current_used += growth_value
             used_forecast.append(current_used)
-        forecast_df["used"] = used_forecast
+        forecast_df["Size_Used"] = used_forecast
 
         combined = pd.concat([hist_df, forecast_df])
         return combined
@@ -149,12 +149,12 @@ def forecast_group(group, server_name, db_name):
 
 
 if selected_db == "All Databases":
-    group = df.groupby("Date", as_index=False)[["per", "used"]].sum()
-    group["servername"] = selected_server if selected_server != "All Servers" else "All Servers"
-    group["databasename"] = "All Databases"
+    group = df.groupby("Date", as_index=False)[["Growth%", "Size_Used"]].sum()
+    group["ServerName"] = selected_server if selected_server != "All Servers" else "All Servers"
+    group["DatabaseName"] = "All Databases"
     plot_data = forecast_group(group, selected_server if selected_server != "All Servers" else "All Servers", "All Databases")
 else:
-    for (server, db), group in df.groupby(["servername", "databasename"]):
+    for (server, db), group in df.groupby(["ServerName", "DatabaseName"]):
         group = group.sort_values("Date")
         plot_data = pd.concat([plot_data, forecast_group(group, server, db)])
 
@@ -162,8 +162,8 @@ else:
 # Rest of visualization & metrics remain unchanged
 # ---------------------------
 if not plot_data.empty:
-    plot_data["used_display"] = plot_data["used"].apply(lambda x: f"{x:,.2f} MB" if x < 1024 else f"{x/1024:,.2f} GB")
-    plot_data["Label"] = plot_data["servername"] + " | " + plot_data["databasename"]
+    plot_data["used_display"] = plot_data["Size_Used"].apply(lambda x: f"{x:,.2f} MB" if x < 1024 else f"{x/1024:,.2f} GB")
+    plot_data["Label"] = plot_data["ServerName"] + " | " + plot_data["DatabaseName"]
 
     if selected_server == "All Servers" and selected_db == "All Databases":
         server_capacity = 3
@@ -173,17 +173,17 @@ if not plot_data.empty:
     if chart_type == "Line Chart":
         fig = px.line(
             plot_data,
-            x="Date", y="per", color="Type", line_group="Label",
+            x="Date", y="Growth%", color="Type", line_group="Label",
             markers=True,
-            hover_data={"servername": True, "databasename": True, "per": ':.2f', "used_display": True, "Type": True},
+            hover_data={"ServerName": True, "DatabaseName": True, "Growth%": ':.2f', "used_display": True, "Type": True},
             title="Server-Database Growth Forecast",
             color_discrete_map={"Historical": "#1f77b4", "Forecast": "#ff7f0e"}
         )
     else:
         fig = px.bar(
             plot_data,
-            x="Date", y="per", color="Type", barmode="group",
-            hover_data={"servername": True, "databasename": True, "per": ':.2f', "used_display": True, "Type": True},
+            x="Date", y="Growth%", color="Type", barmode="group",
+            hover_data={"ServerName": True, "DatabaseName": True, "Growth%":  ':.2f', "used_display": True, "Type": True},
             title="Server-Database Growth Forecast",
             color_discrete_map={"Historical": "#1f77b4", "Forecast": "#ff7f0e"}
         )
@@ -224,7 +224,8 @@ raw_df = df.copy()
 raw_df["Type"] = "Historical"
 pred_df = plot_data[plot_data["Type"] == "Forecast"].copy()
 combined_df = pd.concat([raw_df, pred_df], ignore_index=True)
-combined_df = combined_df.sort_values(["servername", "databasename", "Date"])
+combined_df = combined_df.sort_values(["ServerName", "DatabaseName", "Date"])
+combined_df = combined_df.drop(columns=["used_display"])
 
 if "Year-Month" in combined_df.columns:
     combined_df = combined_df.drop(columns=["Year-Month"])
