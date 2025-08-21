@@ -138,8 +138,18 @@ def forecast_group(group, server_name, db_name):
             used_forecast.append(current_used)
         forecast_df["Size_Used"] = used_forecast
 
-        combined = pd.concat([hist_df, forecast_df])
+            # Combine and recalc Size_Used cumulatively
+        combined = pd.concat([hist_df, forecast_df], ignore_index=True)
+        combined = combined.sort_values("Date").reset_index(drop=True)
+
+        size_values = [combined.loc[0, "Size_Used"]]
+        for i in range(1, len(combined)):
+            prev_size = size_values[-1]
+            size_values.append(prev_size + (combined.loc[i, "Growth%"] / 100.0) * prev_size)
+
+        combined["Size_Used"] = size_values
         return combined
+
 
     except Exception as e:
         st.warning(f"Could not build {selected_model} model for {server_name} | {db_name}: {e}")
@@ -161,7 +171,8 @@ else:
 # ---------------------------
 if selected_server == "All Servers" and selected_db == "All Databases":
     # Average of all servers & databases
-    server_capacity = df.groupby(["ServerName", "DatabaseName"])["Growth%"].mean().mean()
+    server_capacity = df["Growth%"].mean()
+
 else:
     # Specific selection
     filtered_df = df.copy()
