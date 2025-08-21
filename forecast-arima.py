@@ -159,7 +159,7 @@ else:
         plot_data = pd.concat([plot_data, forecast_group(group, server, db)])
 
 # ---------------------------
-# Rest of visualization & metrics remain unchanged
+# visualization 
 # ---------------------------
 if not plot_data.empty:
     plot_data["used_display"] = plot_data["Size_Used"].apply(lambda x: f"{x:,.2f} MB" if x < 1024 else f"{x/1024:,.2f} GB")
@@ -188,8 +188,8 @@ if not plot_data.empty:
             color_discrete_map={"Historical": "#1f77b4", "Forecast": "#ff7f0e"}
         )
 
-    fig.add_hline(y=0, line_color="black")
-    fig.add_vline(x=plot_data["Date"].min(), line_color="black")
+    fig.add_hline(y=0, line_color="white")
+    fig.add_vline(x=plot_data["Date"].min(), line_color="white")
     fig.add_trace(
         px.line(
             x=[plot_data["Date"].min(), plot_data["Date"].max()],
@@ -197,6 +197,35 @@ if not plot_data.empty:
         ).data[0]
     )
     fig.data[-1].update(name="DB Limit", mode="lines", line=dict(color="red", dash="dot", width=2), showlegend=True)
+    # Add background color + centered title + dark axis labels
+    fig.update_layout(
+        title=dict(
+            text="Server-Database Growth Forecast",
+            x=0.4,  # center the title
+            font=dict(color="black", size=18)
+        ),
+        xaxis=dict(
+            gridcolor="rgba(200, 200, 200, 0.3)",  # light gridlines
+            zerolinecolor="rgba(0, 0, 0, 0.2)",
+            title=dict(text="Date", font=dict(color="black", size=18)),
+            tickfont=dict(color="black", size=14)
+        ),
+        yaxis=dict(
+            gridcolor="rgba(200, 200, 200, 0.3)",
+            zerolinecolor="rgba(0, 0, 0, 0.2)",
+            title=dict(text="Growth %", font=dict(color="black", size=18)),
+            tickfont=dict(color="black", size=14)
+        ),
+        plot_bgcolor="rgba(1,3,10, 0.9)",  # soft blueish-gray
+        paper_bgcolor="rgb(240, 242, 246)",  # white outer background
+        font=dict(color="black", size=12),
+        legend=dict(
+            bgcolor="rgba(255, 255, 255, 0.6)",  # transparent legend background
+            bordercolor="rgba(0, 0, 0, 0.1)",
+            borderwidth=1
+        )
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------
