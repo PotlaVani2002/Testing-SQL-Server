@@ -65,8 +65,6 @@ if selected_server != "All Servers":
 if selected_db != "All Databases":
     df = df[df["DatabaseName"] == selected_db]
 
-st.subheader("Database Growth Forecast")
-
 metrics_list = []
 plot_data = pd.DataFrame()
 
@@ -159,16 +157,118 @@ else:
         plot_data = pd.concat([plot_data, forecast_group(group, server, db)])
 
 # ---------------------------
+# Dynamic DB Limit Calculation
+# ---------------------------
+if selected_server == "All Servers" and selected_db == "All Databases":
+    # Average of all servers & databases
+    server_capacity = df.groupby(["ServerName", "DatabaseName"])["Growth%"].mean().mean()
+else:
+    # Specific selection
+    filtered_df = df.copy()
+
+    if selected_server != "All Servers":
+        filtered_df = filtered_df[filtered_df["ServerName"] == selected_server]
+
+    if selected_db != "All Databases":
+        filtered_df = filtered_df[filtered_df["DatabaseName"] == selected_db]
+
+    server_capacity = filtered_df["Growth%"].mean()
+
+# Fallback if no data
+if np.isnan(server_capacity):
+    server_capacity = 0
+
+
+# ---------------------------
+# Additional Plot: Size_Used by Year
+# ---------------------------
+st.subheader("Database Size Trend Over Years")
+
+if not plot_data.empty:
+    # Extract Year for grouping
+    plot_data["Year"] = plot_data["Date"].dt.year
+    if "Label" not in plot_data.columns:
+        plot_data["Label"] = plot_data["ServerName"].astype(str) + " | " + plot_data["DatabaseName"].astype(str)
+
+    # Historical + Forecast size trend
+
+    if chart_type == "Line Chart":
+        size_fig = px.line(
+            plot_data,
+            x="Date", y="Size_Used", color="Type",
+            markers=True,
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Size_Used": ':.2f',
+                "Type": True,
+                "Year": True
+            },
+            title="Database Size Trend (Historical & Forecast)",
+            color_discrete_map={"Historical": "#1f77b4", "Forecast": "#ff7f0e"}
+        )
+
+    elif chart_type == "Bar Chart":
+        size_fig = px.bar(
+            plot_data,
+            x="Date", y="Size_Used", color="Type",
+            barmode="group",
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Size_Used": ':.2f',
+                "Type": True,
+                "Year": True
+            },
+            title="Database Size Trend (Historical & Forecast)",
+            color_discrete_map={"Historical": "#1f77b4", "Forecast": "#ff7f0e"}
+        )
+
+
+    # Style
+    size_fig.update_layout(
+        title=dict(
+            x=0.4,
+            font=dict(color="black", size=18)
+        ),
+        xaxis=dict(
+            gridcolor="rgba(200, 200, 200, 0.3)",
+            zerolinecolor="rgba(0, 0, 0, 0.2)",
+            title=dict(text="Year", font=dict(color="black", size=18)),
+            tickfont=dict(color="black", size=14)
+        ),
+        yaxis=dict(
+            gridcolor="rgba(200, 200, 200, 0.3)",
+            zerolinecolor="rgba(0, 0, 0, 0.2)",
+            title=dict(text="Size Used (MB/GB)", font=dict(color="black", size=18)),
+            tickfont=dict(color="black", size=14)
+        ),
+        plot_bgcolor="rgba(1,3,10, 0.9)",
+        paper_bgcolor="rgb(240, 242, 246)",
+        font=dict(color="black", size=12),
+        legend=dict(
+            bgcolor="rgba(255, 255, 255, 0.6)",
+            bordercolor="rgba(0, 0, 0, 0.1)",
+            borderwidth=1
+        )
+    )
+
+    st.plotly_chart(size_fig, use_container_width=True)
+else:
+    st.info("No data available for size trend visualization.")
+
+# ---------------------------
 # visualization 
 # ---------------------------
+st.subheader("Database Growth Forecast")
 if not plot_data.empty:
     plot_data["used_display"] = plot_data["Size_Used"].apply(lambda x: f"{x:,.2f} MB" if x < 1024 else f"{x/1024:,.2f} GB")
     plot_data["Label"] = plot_data["ServerName"] + " | " + plot_data["DatabaseName"]
 
-    if selected_server == "All Servers" and selected_db == "All Databases":
-        server_capacity = 3
-    else:
-        server_capacity = 3
+    # if selected_server == "All Servers" and selected_db == "All Databases":
+    #     server_capacity = 3
+    # else:
+    #     server_capacity = 3
 
     if chart_type == "Line Chart":
         fig = px.line(
@@ -207,7 +307,7 @@ if not plot_data.empty:
         xaxis=dict(
             gridcolor="rgba(200, 200, 200, 0.3)",  # light gridlines
             zerolinecolor="rgba(0, 0, 0, 0.2)",
-            title=dict(text="Date", font=dict(color="black", size=18)),
+            title=dict(text="Year", font=dict(color="black", size=18)),
             tickfont=dict(color="black", size=14)
         ),
         yaxis=dict(
@@ -216,7 +316,7 @@ if not plot_data.empty:
             title=dict(text="Growth %", font=dict(color="black", size=18)),
             tickfont=dict(color="black", size=14)
         ),
-        plot_bgcolor="rgba(1,3,10, 0.9)",  # soft blueish-gray
+        plot_bgcolor="rgba(1,3,10, 0.9)",  # blackish color
         paper_bgcolor="rgb(240, 242, 246)",  # white outer background
         font=dict(color="black", size=12),
         legend=dict(
