@@ -32,7 +32,7 @@ def load_best_arima_model(meta_file="best_arima_meta_bic.pkl", series=None):
     file_path = Path(__file__).parent / meta_file  
     meta = joblib.load(file_path)  
     order = meta["order"]   #(7, 1, 6)
-    print(order)
+   
     # retrain ARIMA on full series with best params
     final_fit = ARIMA(series, order=order).fit()
     return final_fit, meta
