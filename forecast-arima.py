@@ -32,7 +32,7 @@ def load_best_arima_model(meta_file="best_arima_meta_bic.pkl", series=None):
     file_path = Path(__file__).parent / meta_file  
     meta = joblib.load(file_path)  
     order = meta["order"]   #(7, 1, 6)
-   
+    print(order)
     # retrain ARIMA on full series with best params
     final_fit = ARIMA(series, order=order).fit()
     return final_fit, meta
@@ -143,9 +143,9 @@ def forecast_group(group, server_name, db_name):
         last_used = group["Size_Used"].iloc[-1]
         used_forecast, current_used = [], last_used
         for perc in forecast_df["Growth%"]:
-            growth_value = (perc / 100.0) * current_used
-            current_used += growth_value
-            used_forecast.append(current_used)
+            growth_value = (perc / 100.0) * 70000
+           # current_used += growth_value
+            used_forecast.append(growth_value)
         forecast_df["Size_Used"] = used_forecast
 
         combined = pd.concat([hist_df, forecast_df])
@@ -156,11 +156,14 @@ def forecast_group(group, server_name, db_name):
         return pd.DataFrame()
 
 
-if selected_db == "All Databases":
-    group = df.groupby("Date", as_index=False)[["Growth%", "Size_Used"]].sum()
-    group["ServerName"] = selected_server if selected_server != "All Servers" else "All Servers"
-    group["DatabaseName"] = "All Databases"
-    plot_data = forecast_group(group, selected_server if selected_server != "All Servers" else "All Servers", "All Databases")
+if selected_db == "All Databases": 
+    grouped = df.groupby("Date", as_index=False).apply( lambda x: pd.Series({ 
+        "Growth%": np.average(x["Growth%"], 
+                              weights=x["Size_Used"]), 
+                              "Size_Used": x["Size_Used"].sum() }) ).reset_index() 
+    grouped["ServerName"] = selected_server if selected_server != "All Servers" else "All Servers" 
+    grouped["DatabaseName"] = "All Databases" 
+    plot_data = forecast_group(grouped, grouped["ServerName"].iloc[0], "All Databases")
 else:
     for (server, db), group in df.groupby(["ServerName", "DatabaseName"]):
         group = group.sort_values("Date")
@@ -288,9 +291,7 @@ if not plot_data.empty:
 # ---------------------------
 st.subheader("DB Growth Percent")
 if not plot_data.empty:
-    plot_data["used_display"] = plot_data["Size_Used"].apply(
-        lambda x: f"{x:,.2f} MB" if x < 1024 else f"{x/1024:,.2f} GB"
-    )
+    plot_data["used_display"] = plot_data["Size_Used"]
     plot_data["Label"] = plot_data["ServerName"] + " | " + plot_data["DatabaseName"]
 
     # Separate historical and forecast data
@@ -464,15 +465,6 @@ combined_df = pd.concat([raw_df, pred_df], ignore_index=True)
 combined_df = combined_df.sort_values(["ServerName", "DatabaseName", "Date"])
 combined_df = combined_df.drop(columns=["used_display"])
 
-# ---- Add Previous Size_Used ----
-combined_df["Prev_Size_Used"] = combined_df.groupby(
-    ["ServerName", "DatabaseName"]
-)["Size_Used"].shift(1)
-
-# ---- Size Change (Current + Previous) ----
-combined_df["Size_Change"] = combined_df["Size_Used"] + combined_df["Prev_Size_Used"]
-combined_df = combined_df.drop(columns=["Size_Change"])
-combined_df = combined_df.drop(columns=["Prev_Size_Used"])
 # ---- Add Cumulative Size_Used ----
 combined_df["Cumulative_Size_Used"] = combined_df.groupby(
     ["ServerName", "DatabaseName"]
