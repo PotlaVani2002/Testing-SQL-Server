@@ -108,7 +108,7 @@ def forecast_group(group, server_name, db_name):
             # Train SARIMA fresh (since only ARIMA is pre-trained)
             train_size = max(int(len(ts) * 0.8), 6)
             train, test = ts.iloc[:train_size], ts.iloc[train_size:]
-            model = SARIMAX(train, order=(1,1,1), seasonal_order=(1,1,1,12),
+            model = SARIMAX(train, order=(1,0,3), seasonal_order=(1,1,1,12),
                             enforce_stationarity=False, enforce_invertibility=False)
             final_fit = model.fit()
             future = final_fit.forecast(steps=forecast_months)
