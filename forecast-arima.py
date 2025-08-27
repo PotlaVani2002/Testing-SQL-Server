@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 # ---------------------------
 @st.cache_data
 def load_growth_percentage():
-    file_path = Path(__file__).parent / "new-data4.csv"
+    file_path = Path(__file__).parent / "new-data5.csv"
     df = pd.read_csv(file_path)
 
     # Ensure Date column
@@ -318,7 +318,7 @@ if not plot_data.empty:
     # Dynamic capacity based on server
     if selected_server == "Server1":
         server_capacity = 16
-    elif selected_server == "Server12":
+    elif selected_server == "Server2":
         server_capacity = 11
     else:
         server_capacity=13.5
