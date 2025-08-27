@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 # ---------------------------
 @st.cache_data
 def load_growth_percentage():
-    file_path = Path(__file__).parent / "new-data.csv"
+    file_path = Path(__file__).parent / "new-data2.csv"
     df = pd.read_csv(file_path)
 
     # Ensure Date column
@@ -28,10 +28,10 @@ def load_growth_percentage():
 # ---------------------------
 # Load Pre-trained ARIMA Model
 # ---------------------------
-def load_best_arima_model(meta_file="best_arima_meta_bic.pkl", series=None):
+def load_best_arima_model(meta_file="best_arima_meta3.pkl", series=None):
     file_path = Path(__file__).parent / meta_file  
     meta = joblib.load(file_path)  
-    order = meta["order"]   #(7, 1, 6)
+    order = (12,1,6)  #(7, 1, 6)
     print(order)
     # retrain ARIMA on full series with best params
     final_fit = ARIMA(series, order=order).fit()
@@ -160,7 +160,7 @@ if selected_db == "All Databases":
     grouped = df.groupby("Date", as_index=False).apply( lambda x: pd.Series({ 
         "Growth%": np.average(x["Growth%"], 
                               weights=x["Size_Used"]), 
-                              "Size_Used": x["Size_Used"].sum() }) ).reset_index() 
+        "Size_Used": x["Size_Used"].sum() }) ).reset_index() 
     grouped["ServerName"] = selected_server if selected_server != "All Servers" else "All Servers" 
     grouped["DatabaseName"] = "All Databases" 
     plot_data = forecast_group(grouped, grouped["ServerName"].iloc[0], "All Databases")
