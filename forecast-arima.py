@@ -156,18 +156,41 @@ def forecast_group(group, server_name, db_name):
         return pd.DataFrame()
 
 
-if selected_db == "All Databases": 
-    grouped = df.groupby("Date", as_index=False).apply( lambda x: pd.Series({ 
-        "Growth%": np.average(x["Growth%"], 
-                              weights=x["Size_Used"]), 
-        "Size_Used": x["Size_Used"].sum() }) ).reset_index() 
-    grouped["ServerName"] = selected_server if selected_server != "All Servers" else "All Servers" 
-    grouped["DatabaseName"] = "All Databases" 
-    plot_data = forecast_group(grouped, grouped["ServerName"].iloc[0], "All Databases")
+plot_data = pd.DataFrame()
+
+if selected_server == "All Servers" and selected_db == "All Databases":
+    # Aggregate across all servers and databases
+    grouped = df.groupby("Date", as_index=False).apply(
+        lambda x: pd.Series({
+            "Growth%": np.average(x["Growth%"], weights=x["Size_Used"]),
+            "Size_Used": x["Size_Used"].sum()
+        })
+    ).reset_index(drop=True)
+    grouped["ServerName"] = "All Servers"
+    grouped["DatabaseName"] = "All Databases"
+    plot_data = forecast_group(grouped, "All Servers", "All Databases")
+
+elif selected_db == "All Databases":
+    # Aggregate per server across all databases
+    df_filtered = df[df["ServerName"] == selected_server]
+    grouped = df_filtered.groupby("Date", as_index=False).apply(
+        lambda x: pd.Series({
+            "Growth%": np.average(x["Growth%"], weights=x["Size_Used"]),
+            "Size_Used": x["Size_Used"].sum()
+        })
+    ).reset_index(drop=True)
+    grouped["ServerName"] = selected_server
+    grouped["DatabaseName"] = "All Databases"
+    plot_data = forecast_group(grouped, selected_server, "All Databases")
+
 else:
+    # Forecast individually for each server-database pair
     for (server, db), group in df.groupby(["ServerName", "DatabaseName"]):
-        group = group.sort_values("Date")
-        plot_data = pd.concat([plot_data, forecast_group(group, server, db)])
+        if selected_server == "All Servers" or server == selected_server:
+            if selected_db == "All Databases" or db == selected_db:
+                group = group.sort_values("Date")
+                plot_data = pd.concat([plot_data, forecast_group(group, server, db)])
+
 
 
 # ---------------------------
