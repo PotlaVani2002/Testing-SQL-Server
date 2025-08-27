@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 # ---------------------------
 @st.cache_data
 def load_growth_percentage():
-    file_path = Path(__file__).parent / "new-data2.csv"
+    file_path = Path(__file__).parent / "NEW-DATA2.csv"
     df = pd.read_csv(file_path)
 
     # Ensure Date column
