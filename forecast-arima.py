@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 # ---------------------------
 @st.cache_data
 def load_growth_percentage():
-    file_path = Path(__file__).parent / "NEW-DATA2.csv"
+    file_path = Path(__file__).parent / "new-data4.csv"
     df = pd.read_csv(file_path)
 
     # Ensure Date column
@@ -43,16 +43,40 @@ def load_best_arima_model(meta_file="best_arima_meta3.pkl", series=None):
 # ---------------------------
 df = load_growth_percentage()
 
-servers = ["All Servers"] + sorted(df['ServerName'].unique())
-selected_server = st.sidebar.selectbox("Select Server", servers)
+# Default values
+default_server = "Server1"
 
+# Ensure Server1 exists, else fallback to first available
+if default_server not in df['ServerName'].unique():
+    default_server = sorted(df['ServerName'].unique())[0]
+
+servers = ["All Servers"] + sorted(df['ServerName'].unique())
+selected_server = st.sidebar.selectbox(
+    "Select Server", 
+    servers, 
+    index=servers.index(default_server)
+)
+
+# Database list depends on selected_server
 if selected_server != "All Servers":
     db_list = df[df["ServerName"] == selected_server]['DatabaseName'].unique()
 else:
     db_list = df['DatabaseName'].unique()
 
 databases = ["All Databases"] + sorted(db_list)
-selected_db = st.sidebar.selectbox("Select Database", databases)
+
+# Default database selection for Server1
+if selected_server == "Server1":
+    default_db = "All Databases"
+else:
+    default_db = sorted(db_list)[0] if len(db_list) > 0 else "All Databases"
+
+selected_db = st.sidebar.selectbox(
+    "Select Database", 
+    databases, 
+    index=databases.index(default_db)
+)
+
 
 forecast_months = st.sidebar.number_input("Months to Forecast", min_value=1, value=6, step=1)
 
@@ -193,6 +217,164 @@ else:
 
 
 
+
+# ---------------------------
+# visualization 
+# ---------------------------
+st.subheader("DB Growth Percent")
+if not plot_data.empty:
+    plot_data["used_display"] = plot_data["Size_Used"]
+    plot_data["Label"] = plot_data["ServerName"] + " | " + plot_data["DatabaseName"]
+
+    # Separate historical and forecast data
+    hist_data = plot_data[plot_data["Type"] == "Historical"]
+    forecast_data = plot_data[plot_data["Type"] == "Forecast"]
+
+    if chart_type == "Bar Chart":
+        # BAR CHART for historical
+        fig = px.bar(
+            hist_data,
+            x="Date", y="Growth%",
+            color="Type",
+            color_discrete_map={"Historical": "#1f77b4"},
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Growth%": ':.2f',
+                "used_display": True,
+                "Type": True
+            },
+            title="Server-Database Growth Forecast"
+        )
+        # Add forecast bars
+        forecast_fig = px.bar(
+            forecast_data,
+            x="Date", y="Growth%",
+            color="Type",
+            color_discrete_map={"Forecast": "#ff7f0e"},
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Growth%": ':.2f',
+                "used_display": True,
+                "Type": True
+            }
+        )
+        for trace in forecast_fig.data:
+            fig.add_trace(trace)
+
+    else:
+        # LINE CHART for historical
+        fig = px.line(
+            hist_data,
+            x="Date", y="Growth%",
+            line_group="Label",
+            color="Type",
+            color_discrete_map={"Forecast": "#1f77b4"},
+            color_discrete_sequence=["#1f77b4"],
+            markers=True,
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Growth%": ':.2f',
+                "used_display": True,
+                "Type": True
+            },
+            title="Server-Database Growth Forecast"
+        )
+
+        # Add forecast lines
+        forecast_fig = px.line(
+            forecast_data,
+            x="Date", y="Growth%",
+            line_group="Label",
+            color="Type",
+            color_discrete_map={"Forecast": "#ff7f0e"},
+            color_discrete_sequence=["#ff7f0e"],
+            markers=True,
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Growth%": ':.2f',
+                "used_display": True,
+                "Type": True
+            }
+        )
+        for trace in forecast_fig.data:
+            fig.add_trace(trace)
+
+        # Connect last historical and first forecast point for each label
+        for label in forecast_data["Label"].unique():
+            last_hist = hist_data[hist_data["Label"] == label].iloc[-1]
+            first_fore = forecast_data[forecast_data["Label"] == label].iloc[0]
+            fig.add_scatter(
+                x=[last_hist["Date"], first_fore["Date"]],
+                y=[last_hist["Growth%"], first_fore["Growth%"]],
+                mode="lines",
+                line=dict(color="#ff7f0e", width=2),
+                showlegend=False
+            )
+
+    # Dynamic capacity based on server
+    if selected_server == "Server1":
+        server_capacity = 16
+    elif selected_server == "Server12":
+        server_capacity = 11
+    else:
+        server_capacity=13.5
+
+    fig.add_trace(
+        px.line(
+            x=[plot_data["Date"].min(), plot_data["Date"].max()],
+            y=[server_capacity, server_capacity]
+        ).data[0]
+    )
+
+    fig.data[-1].update(
+        name="DB Limit",
+        mode="lines",
+        line=dict(color="red", dash="dot", width=2),
+        showlegend=True
+    )
+    fig.add_hline(y=0, line_color="white") 
+    fig.add_vline(x=plot_data["Date"].min(), line_color="white")
+
+    # Layout styling
+    fig.update_layout(
+        title=dict(
+            text="Server-Database Growth Forecast",
+            x=0.4,
+            font=dict(color="black", size=18)
+        ),
+        xaxis=dict(
+            showline=True,
+            linecolor="white",
+            gridcolor="rgba(200, 200, 200, 0.3)",
+            zerolinecolor="rgba(0, 0, 0, 0.2)",
+            title=dict(text="Date", font=dict(color="black", size=18)),
+            tickfont=dict(color="black", size=14)
+        ),
+        yaxis=dict(
+            showline=True,
+            linecolor="white",
+            gridcolor="rgba(200, 200, 200, 0.3)",
+            zerolinecolor="rgba(0, 0, 0, 0.2)",
+            title=dict(text="Growth %", font=dict(color="black", size=18)),
+            tickfont=dict(color="black", size=14)
+        ),
+        plot_bgcolor="rgba(1,3,10, 0.9)",
+        paper_bgcolor="rgb(240, 242, 246)",
+        font=dict(color="black", size=12),
+        legend=dict(
+            bgcolor="rgba(255, 255, 255, 0.6)",
+            bordercolor="rgba(0, 0, 0, 0.1)",
+            borderwidth=1
+        )
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
 # ---------------------------
 # Extra Plot: Cumulative Size Used (Dynamic - Line OR Bar)
 # ---------------------------
@@ -309,154 +491,6 @@ if not plot_data.empty:
     st.plotly_chart(fig_cum, use_container_width=True)
 
 
-# ---------------------------
-# visualization 
-# ---------------------------
-st.subheader("DB Growth Percent")
-if not plot_data.empty:
-    plot_data["used_display"] = plot_data["Size_Used"]
-    plot_data["Label"] = plot_data["ServerName"] + " | " + plot_data["DatabaseName"]
-
-    # Separate historical and forecast data
-    hist_data = plot_data[plot_data["Type"] == "Historical"]
-    forecast_data = plot_data[plot_data["Type"] == "Forecast"]
-
-    if chart_type == "Bar Chart":
-        # BAR CHART for historical
-        fig = px.bar(
-            hist_data,
-            x="Date", y="Growth%",
-            color="Type",
-            color_discrete_map={"Historical": "#1f77b4"},
-            hover_data={
-                "ServerName": True,
-                "DatabaseName": True,
-                "Growth%": ':.2f',
-                "used_display": True,
-                "Type": True
-            },
-            title="Server-Database Growth Forecast"
-        )
-        # Add forecast bars
-        forecast_fig = px.bar(
-            forecast_data,
-            x="Date", y="Growth%",
-            color="Type",
-            color_discrete_map={"Forecast": "#ff7f0e"},
-            hover_data={
-                "ServerName": True,
-                "DatabaseName": True,
-                "Growth%": ':.2f',
-                "used_display": True,
-                "Type": True
-            }
-        )
-        for trace in forecast_fig.data:
-            fig.add_trace(trace)
-
-    else:
-        # LINE CHART for historical
-        fig = px.line(
-            hist_data,
-            x="Date", y="Growth%",
-            line_group="Label",
-            color="Type",
-            color_discrete_map={"Forecast": "#1f77b4"},
-            color_discrete_sequence=["#1f77b4"],
-            markers=True,
-            hover_data={
-                "ServerName": True,
-                "DatabaseName": True,
-                "Growth%": ':.2f',
-                "used_display": True,
-                "Type": True
-            },
-            title="Server-Database Growth Forecast"
-        )
-
-        # Add forecast lines
-        forecast_fig = px.line(
-            forecast_data,
-            x="Date", y="Growth%",
-            line_group="Label",
-            color="Type",
-            color_discrete_map={"Forecast": "#ff7f0e"},
-            color_discrete_sequence=["#ff7f0e"],
-            markers=True,
-            hover_data={
-                "ServerName": True,
-                "DatabaseName": True,
-                "Growth%": ':.2f',
-                "used_display": True,
-                "Type": True
-            }
-        )
-        for trace in forecast_fig.data:
-            fig.add_trace(trace)
-
-        # Connect last historical and first forecast point for each label
-        for label in forecast_data["Label"].unique():
-            last_hist = hist_data[hist_data["Label"] == label].iloc[-1]
-            first_fore = forecast_data[forecast_data["Label"] == label].iloc[0]
-            fig.add_scatter(
-                x=[last_hist["Date"], first_fore["Date"]],
-                y=[last_hist["Growth%"], first_fore["Growth%"]],
-                mode="lines",
-                line=dict(color="#ff7f0e", width=2),
-                showlegend=False
-            )
-
-    # Add capacity line
-    server_capacity = 3
-    fig.add_trace(
-        px.line(
-            x=[plot_data["Date"].min(), plot_data["Date"].max()],
-            y=[server_capacity, server_capacity]
-        ).data[0]
-    )
-    fig.data[-1].update(
-        name="DB Limit",
-        mode="lines",
-        line=dict(color="red", dash="dot", width=2),
-        showlegend=True
-    )
-    fig.add_hline(y=0, line_color="white") 
-    fig.add_vline(x=plot_data["Date"].min(), line_color="white")
-
-    # Layout styling
-    fig.update_layout(
-        title=dict(
-            text="Server-Database Growth Forecast",
-            x=0.4,
-            font=dict(color="black", size=18)
-        ),
-        xaxis=dict(
-            showline=True,
-            linecolor="white",
-            gridcolor="rgba(200, 200, 200, 0.3)",
-            zerolinecolor="rgba(0, 0, 0, 0.2)",
-            title=dict(text="Date", font=dict(color="black", size=18)),
-            tickfont=dict(color="black", size=14)
-        ),
-        yaxis=dict(
-            showline=True,
-            linecolor="white",
-            gridcolor="rgba(200, 200, 200, 0.3)",
-            zerolinecolor="rgba(0, 0, 0, 0.2)",
-            title=dict(text="Growth %", font=dict(color="black", size=18)),
-            tickfont=dict(color="black", size=14)
-        ),
-        plot_bgcolor="rgba(1,3,10, 0.9)",
-        paper_bgcolor="rgb(240, 242, 246)",
-        font=dict(color="black", size=12),
-        legend=dict(
-            bgcolor="rgba(255, 255, 255, 0.6)",
-            bordercolor="rgba(0, 0, 0, 0.1)",
-            borderwidth=1
-        )
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
 
 
 # ---------------------------
