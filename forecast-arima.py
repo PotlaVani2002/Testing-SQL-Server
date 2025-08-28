@@ -85,13 +85,19 @@ def forecast_group(group, server_name, db_name):
         return pd.DataFrame()
     try:
         if selected_model == "ARIMA":
-            final_fit, meta = load_best_arima_model("best_arima_meta2.pkl", series=ts)
+            n = max(int(len(ts) * 0.8), 6)
+            train, test = ts.iloc[:n], ts.iloc[n:]
+            final_fit, meta = load_best_arima_model("best_arima_meta2.pkl", series=train)
             future = final_fit.forecast(steps=forecast_months)
-            mape = np.mean(np.abs((ts - final_fit.fittedvalues) / np.where(np.abs(ts) < 1e-8, 1e-8, np.abs(ts)))) * 100
-            metrics_list.append({"RMSE": round(np.sqrt(meta["mse"]), 3),
-                                 "MAE": round(meta["mae"], 3),
+            y_true = np.asarray(test, dtype=float)
+            y_pred = np.asarray(final_fit.forecast(steps=len(test)), dtype=float)
+            mse = mean_squared_error(y_true, y_pred)
+            mape = np.mean(np.abs((y_true - y_pred) / np.where(np.abs(y_true) < 1e-8, 1e-8, np.abs(y_true)))) * 100
+            metrics_list.append({"RMSE": round(np.sqrt(mse), 3),
+                                 "MAE": round(mean_absolute_error(y_true, y_pred), 3),
                                  "MAPE (%)": round(mape, 3),
                                  "Model": "ARIMA"})
+
         else:
             n = max(int(len(ts) * 0.7), 6)
             train, test = ts.iloc[:n], ts.iloc[n:]
