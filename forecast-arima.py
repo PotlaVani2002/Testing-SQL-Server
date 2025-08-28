@@ -71,11 +71,26 @@ def agg_weighted(x):
 
 def server_capacity_value(srv):
     if srv == "Server1":
-        return 17
+        return 1.6
     if srv == "Server2":
-        return 17
-    return 13.5
+        return 1.8
+    return 2
 
+def server_capacity_value(srv,dbc):
+    if srv == "Server1":
+        if dbc=="DB1":
+            return 0.86
+        elif dbc=="DB2":
+            return 0.80
+        else:
+            return 1.6
+    elif srv == "Server2":
+        if dbc=="DB5":
+            return 1.8
+        else:
+            return 1.8
+    else:
+      return 2
 # =========================
 # UI
 # =========================
@@ -232,10 +247,10 @@ if not plot_data.empty:
                             y=[last_hist["Growth%"], first_fore["Growth%"]],
                             mode="lines", line=dict(color="#ff7f0e", width=2), showlegend=False)
 
-    cap = server_capacity_value(selected_server)
+    cap = server_capacity_value(selected_server,selected_db)
     fig.add_trace(px.line(x=[plot_data["Date"].min(), plot_data["Date"].max()],
                           y=[cap, cap]).data[0])
-    fig.data[-1].update(name="DB Limit", mode="lines",
+    fig.data[-1].update(name="Average DB Growth%", mode="lines",
                         line=dict(color="red", dash="dot", width=2), showlegend=True)
     fig.add_hline(y=0, line_color="white")
     fig.add_vline(x=plot_data["Date"].min(), line_color="white")
@@ -246,7 +261,7 @@ if not plot_data.empty:
                    tickfont=dict(color="black", size=14)),
         yaxis=dict(showline=True, linecolor="white", gridcolor="rgba(200, 200, 200, 0.3)",
                    zerolinecolor="rgba(0, 0, 0, 0.2)", title=dict(text="Growth %", font=dict(color="black", size=18)),
-                   tickfont=dict(color="black", size=14) , dtick=2),
+                   tickfont=dict(color="black", size=14) , dtick=0.5),
         plot_bgcolor="rgba(1,3,10, 0.9)", paper_bgcolor="rgb(240, 242, 246)",
         font=dict(color="black", size=12),
         legend=dict(bgcolor="rgba(255, 255, 255, 0.6)", bordercolor="rgba(0, 0, 0, 0.1)", borderwidth=1),
