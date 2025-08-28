@@ -22,9 +22,13 @@ def load_growth_percentage():
     df["Date"] = pd.to_datetime(df["Year"].astype(str) + "-" + df["Month"].astype(str) + "-01")
     return df
 
-def load_best_arima_model(meta_file="best_arima_meta2.pkl", series=None):
+def load_best_arima_model(meta_file="best_arima_meta2.pkl", series=None, label=False):
     meta = joblib.load(Path(__file__).parent / meta_file)
-    order = (12,1,6)  # (7,1,6)
+    if label==True:
+        order=(12,1,6)
+    else:
+        order=(12,3,12)
+    #order = (12,1,6)  # (7,1,6)
     final_fit = ARIMA(series, order=order).fit()
     return final_fit, meta
 
@@ -87,7 +91,10 @@ def forecast_group(group, server_name, db_name):
         if selected_model == "ARIMA":
             n = max(int(len(ts) * 0.8), 6)
             train, test = ts.iloc[:n], ts.iloc[n:]
-            final_fit, meta = load_best_arima_model("best_arima_meta2.pkl", series=train)
+            if server_name=="All Servers" and "All Databases":
+                final_fit, meta = load_best_arima_model("best_arima_meta2.pkl", series=train)
+            else:
+                final_fit, meta = load_best_arima_model("best_arima_meta2.pkl", series=train,label=True)
             future = final_fit.forecast(steps=forecast_months)
             y_true = np.asarray(test, dtype=float)
             y_pred = np.asarray(final_fit.forecast(steps=len(test)), dtype=float)
