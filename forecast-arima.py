@@ -17,18 +17,46 @@ st.set_page_config(layout="wide")
 # =========================
 @st.cache_data
 def load_growth_percentage():
-    file_path = Path(__file__).parent / "new-data7.csv"
+    file_path = Path(__file__).parent / "new-data8.csv"
     df = pd.read_csv(file_path)
     df["Date"] = pd.to_datetime(df["Year"].astype(str) + "-" + df["Month"].astype(str) + "-01")
     return df
 
+from statsmodels.tsa.arima.model import ARIMA
+import joblib
+from pathlib import Path
+import numpy as np
+
 def load_best_arima_model(meta_file="best_arima_meta2.pkl", series=None, label=False):
     meta = joblib.load(Path(__file__).parent / meta_file)
-    if label==True:
-        order=(12,1,6)
+
+    if label:
+        # Fixed order when label is True
+        order = (12, 1, 6)
     else:
-        order=(12,3,12)
-    #order = (12,1,6)  # (7,1,6)
+        # Small grid search for p,d,q in given ranges
+        # p_values = range(0, 10)   # Example: 6 to 9
+        # d_values = range(0, 3)    # Example: 1 to 2
+        # q_values = range(0, 10)    # Example: 2 to 4
+
+        # best_aic = np.inf
+        # best_order = None
+
+        # for p in p_values:
+        #     for d in d_values:
+        #         for q in q_values:
+        #             try:
+        #                 model = ARIMA(series, order=(p, d, q))
+        #                 results = model.fit()
+        #                 if results.aic < best_aic:
+        #                     best_aic = results.aic
+        #                     best_order = (p, d, q)
+        #             except:
+        #                 continue
+
+        # order = best_order if best_order else (11,1,1)  # fallback
+        # print(order)  #(7,1,2) (8,1,11) (8,1,12)
+        order=(12,1,12)
     final_fit = ARIMA(series, order=order).fit()
     return final_fit, meta
 
