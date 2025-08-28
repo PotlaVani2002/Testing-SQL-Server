@@ -17,14 +17,14 @@ st.set_page_config(layout="wide")
 # =========================
 @st.cache_data
 def load_growth_percentage():
-    file_path = Path(__file__).parent / "new-data5.csv"
+    file_path = Path(__file__).parent / "new-data7.csv"
     df = pd.read_csv(file_path)
     df["Date"] = pd.to_datetime(df["Year"].astype(str) + "-" + df["Month"].astype(str) + "-01")
     return df
 
-def load_best_arima_model(meta_file="best_arima_meta3.pkl", series=None):
+def load_best_arima_model(meta_file="best_arima_meta2.pkl", series=None):
     meta = joblib.load(Path(__file__).parent / meta_file)
-    order = (12, 1, 6)  # (7,1,6)
+    order = (12,1,6)  # (7,1,6)
     final_fit = ARIMA(series, order=order).fit()
     return final_fit, meta
 
@@ -39,9 +39,9 @@ def agg_weighted(x):
 
 def server_capacity_value(srv):
     if srv == "Server1":
-        return 16
+        return 17
     if srv == "Server2":
-        return 11
+        return 17
     return 13.5
 
 # =========================
@@ -97,6 +97,9 @@ def forecast_group(group, server_name, db_name):
                                  "MAE": round(mean_absolute_error(y_true, y_pred), 3),
                                  "MAPE (%)": round(mape, 3),
                                  "Model": "ARIMA"})
+            # After metrics calculation
+            final_fit = final_fit.apply(ts)  # refit on full series
+            future = final_fit.forecast(steps=forecast_months)
 
         else:
             n = max(int(len(ts) * 0.7), 6)
@@ -129,7 +132,17 @@ def forecast_group(group, server_name, db_name):
         forecast_df["Month"] = forecast_df["Date"].dt.month
 
         # Size_Used from growth% (keep original logic: percentage * 70000 each month)
-        forecast_df["Size_Used"] = (forecast_df["Growth%"] / 100.0) * 70000
+        if server_name == "Server1":
+            base_size = 115000
+        elif server_name == "Server2":
+            base_size = 125000
+        elif server_name == "All Servers":
+            base_size = (115000 + 90000) / 2
+        else:
+            base_size = 70000  # fallback for unknown servers
+
+        forecast_df["Size_Used"] = (forecast_df["Growth%"] / 100.0) * base_size
+
 
         return pd.concat([hist_df, forecast_df], ignore_index=True)
     except Exception as e:
@@ -198,11 +211,12 @@ if not plot_data.empty:
                    tickfont=dict(color="black", size=14)),
         yaxis=dict(showline=True, linecolor="white", gridcolor="rgba(200, 200, 200, 0.3)",
                    zerolinecolor="rgba(0, 0, 0, 0.2)", title=dict(text="Growth %", font=dict(color="black", size=18)),
-                   tickfont=dict(color="black", size=14)),
+                   tickfont=dict(color="black", size=14) , dtick=2),
         plot_bgcolor="rgba(1,3,10, 0.9)", paper_bgcolor="rgb(240, 242, 246)",
         font=dict(color="black", size=12),
-        legend=dict(bgcolor="rgba(255, 255, 255, 0.6)", bordercolor="rgba(0, 0, 0, 0.1)", borderwidth=1)
-    )
+        legend=dict(bgcolor="rgba(255, 255, 255, 0.6)", bordercolor="rgba(0, 0, 0, 0.1)", borderwidth=1),
+        height=500
+    ) 
     st.plotly_chart(fig, use_container_width=True)
 
 # =========================
