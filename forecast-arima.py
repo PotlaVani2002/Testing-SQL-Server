@@ -274,46 +274,110 @@ if not plot_data.empty:
 # =========================
 st.subheader("DB Size Usage")
 if not plot_data.empty:
-    plot_data["Cumulative_Size_Used"] = plot_data.groupby(["ServerName", "DatabaseName"])["Size_Used"].cumsum()
+    plot_data["Cumulative_Size_Used"] = plot_data.groupby(
+        ["ServerName", "DatabaseName"]
+    )["Size_Used"].cumsum()
     plot_data["Cumulative_Size_Used_GB"] = plot_data["Cumulative_Size_Used"] / 1024
     hist_data = plot_data[plot_data["Type"] == "Historical"]
     forecast_data = plot_data[plot_data["Type"] == "Forecast"]
 
-    if chart_type == "Bar Chart":
-        fig_cum = px.bar(plot_data, x="Date", y="Cumulative_Size_Used_GB", color="Type", barmode="group",
-                         color_discrete_map={"Historical": "#1f77b4", "Forecast": "#ff7f0e"},
-                         hover_data={"ServerName": True, "DatabaseName": True, "Cumulative_Size_Used_GB": ':.2f', "Date": True},
-                         title=" Size Used (Bar Chart)")
+    # Available space in MB → Convert to GB
+    available_space_gb = {
+        "Server1": 115000.00 / 1024,
+        "Server2": 125000.00 / 1024
+    }
+
+    # Calculate remaining space for each server from forecast
+    remaining_space_labels = []
+    if not forecast_data.empty:
+        for server in forecast_data["ServerName"].unique():
+            last_forecast_value = forecast_data[
+                forecast_data["ServerName"] == server
+            ]["Cumulative_Size_Used_GB"].iloc[-1]
+            remaining_space = available_space_gb.get(server, 0) - last_forecast_value
+            #remaining_space_labels.append(f"{server}:<br> {remaining_space:.2f} GB Available")
+            color = "red" if remaining_space < 0 else "green"
+            remaining_space_labels.append(
+            f"<span style='color:{color}'>{server}:<br> {remaining_space:.2f} GB Available</span>")
     else:
-        fig_cum = px.line(hist_data, x="Date", y="Cumulative_Size_Used_GB", color="Type",
-                          color_discrete_map={"Historical": "#1f77b4"}, markers=True,
-                          hover_data={"ServerName": True, "DatabaseName": True, "Cumulative_Size_Used_GB": ':.2f', "Date": True},
-                          title="DB Size Used (Line Chart)")
-        forecast_fig = px.line(forecast_data, x="Date", y="Cumulative_Size_Used_GB", color="Type",
-                               color_discrete_map={"Forecast": "#ff7f0e"}, markers=True)
+        remaining_space_labels.append("No forecast data available")
+
+    # Create chart
+    if chart_type == "Bar Chart":
+        fig_cum = px.bar(
+            plot_data, x="Date", y="Cumulative_Size_Used_GB", color="Type", barmode="group",
+            color_discrete_map={"Historical": "#1f77b4", "Forecast": "#ff7f0e"},
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Cumulative_Size_Used_GB": ':.2f',
+                "Date": True
+            },
+            title="Size Used (Bar Chart)"
+        )
+    else:
+        fig_cum = px.line(
+            hist_data, x="Date", y="Cumulative_Size_Used_GB", color="Type",
+            color_discrete_map={"Historical": "#1f77b4"}, markers=True,
+            hover_data={
+                "ServerName": True,
+                "DatabaseName": True,
+                "Cumulative_Size_Used_GB": ':.2f',
+                "Date": True
+            },
+            title="DB Size Used (Line Chart)"
+        )
+        forecast_fig = px.line(
+            forecast_data, x="Date", y="Cumulative_Size_Used_GB", color="Type",
+            color_discrete_map={"Forecast": "#ff7f0e"}, markers=True
+        )
         for tr in forecast_fig.data:
             fig_cum.add_trace(tr)
         for db in forecast_data["DatabaseName"].unique():
             last_hist = hist_data[hist_data["DatabaseName"] == db].iloc[-1]
             first_fore = forecast_data[forecast_data["DatabaseName"] == db].iloc[0]
-            fig_cum.add_scatter(x=[last_hist["Date"], first_fore["Date"]],
-                                y=[last_hist["Cumulative_Size_Used_GB"], first_fore["Cumulative_Size_Used_GB"]],
-                                mode="lines", line=dict(color="#ff7f0e", width=2), showlegend=False)
+            fig_cum.add_scatter(
+                x=[last_hist["Date"], first_fore["Date"]],
+                y=[last_hist["Cumulative_Size_Used_GB"], first_fore["Cumulative_Size_Used_GB"]],
+                mode="lines", line=dict(color="#ff7f0e", width=2), showlegend=False
+            )
 
+    # Add reference lines
     fig_cum.add_hline(y=0, line_color="white")
     fig_cum.add_vline(x=plot_data["Date"].min(), line_color="white")
+
+    # Add annotation box (top-right)
+    fig_cum.add_annotation(
+        text="<br>".join(remaining_space_labels),
+        xref="paper", yref="paper",
+        x=1.00,  # Slightly outside the right edge
+        y=0.08,  # Slightly above the top edge
+        showarrow=False,
+        font=dict(size=14),
+        align="left",
+        bordercolor="black",
+        borderwidth=1,
+        borderpad=2,
+        bgcolor="white",
+        opacity=1
+    )
+
+    # Layout
     fig_cum.update_layout(
         title=dict(text="Database Size Used In GB", x=0.4, font=dict(color="black", size=18)),
         xaxis=dict(showline=True, linecolor="white", gridcolor="rgba(200, 200, 200, 0.3)",
-                   zerolinecolor="rgba(0, 0, 0, 0.2)", title=dict(text="Date", font=dict(color="black", size=18)),
+                   zerolinecolor="rgba(0, 0, 0, 0.2)",
+                   title=dict(text="Date", font=dict(color="black", size=18)),
                    tickfont=dict(color="black", size=14)),
         yaxis=dict(showline=True, linecolor="white", gridcolor="rgba(200, 200, 200, 0.3)",
-                   zerolinecolor="rgba(0, 0, 0, 0.2)", title=dict(text="Size Used(GB)", font=dict(color="black", size=18)),
+                   zerolinecolor="rgba(0, 0, 0, 0.2)",
+                   title=dict(text="Size Used (GB)", font=dict(color="black", size=18)),
                    tickfont=dict(color="black", size=14)),
         plot_bgcolor="rgba(1,3,10, 0.9)", paper_bgcolor="rgb(240, 242, 246)",
         font=dict(color="black", size=12),
         legend=dict(bgcolor="rgba(255, 255, 255, 0.6)", bordercolor="rgba(0, 0, 0, 0.1)", borderwidth=1)
     )
+
     st.plotly_chart(fig_cum, use_container_width=True)
 
 # =========================
