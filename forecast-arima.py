@@ -8,8 +8,13 @@ import plotly.express as px
 import joblib
 from pathlib import Path
 import warnings
+from statsmodels.tsa.arima.model import ARIMA
+import joblib
+from pathlib import Path
+import numpy as np
 
 warnings.filterwarnings("ignore")
+
 st.set_page_config(layout="wide")
 
 # =========================
@@ -22,10 +27,6 @@ def load_growth_percentage():
     df["Date"] = pd.to_datetime(df["Year"].astype(str) + "-" + df["Month"].astype(str) + "-01")
     return df
 
-from statsmodels.tsa.arima.model import ARIMA
-import joblib
-from pathlib import Path
-import numpy as np
 
 def load_best_arima_model(meta_file="best_arima_meta2.pkl", series=None, label=False):
     meta = joblib.load(Path(__file__).parent / meta_file)
@@ -69,13 +70,6 @@ def agg_weighted(x):
         "Size_Used": x["Size_Used"].sum()
     })
 
-def server_capacity_value(srv):
-    if srv == "Server1":
-        return 1.6
-    if srv == "Server2":
-        return 1.8
-    return 2
-
 def server_capacity_value(srv,dbc):
     if srv == "Server1":
         if dbc=="DB1":
@@ -83,12 +77,12 @@ def server_capacity_value(srv,dbc):
         elif dbc=="DB2":
             return 0.80
         else:
-            return 1.6
+            return 0.8
     elif srv == "Server2":
         if dbc=="DB5":
-            return 1.8
+            return 1.84
         else:
-            return 1.8
+            return 1.84
     else:
       return 2
 # =========================
@@ -181,13 +175,13 @@ def forecast_group(group, server_name, db_name):
         forecast_df["Year"] = forecast_df["Date"].dt.year
         forecast_df["Month"] = forecast_df["Date"].dt.month
 
-        # Size_Used from growth% (keep original logic: percentage * 70000 each month)
+        # Size_Used from growth% 
         if server_name == "Server1":
             base_size = 115000
         elif server_name == "Server2":
             base_size = 125000
         elif server_name == "All Servers":
-            base_size = (115000 + 90000) / 2
+            base_size = (115000 + 125000) / 2
         else:
             base_size = 70000  # fallback for unknown servers
 
@@ -295,7 +289,6 @@ if not plot_data.empty:
                 forecast_data["ServerName"] == server
             ]["Cumulative_Size_Used_GB"].iloc[-1]
             remaining_space = available_space_gb.get(server, 0) - last_forecast_value
-            #remaining_space_labels.append(f"{server}:<br> {remaining_space:.2f} GB Available")
             color = "red" if remaining_space < 0 else "green"
             remaining_space_labels.append(
             f"<span style='color:{color}'>{server}:<br> {remaining_space:.2f} GB Available</span>")
@@ -346,12 +339,12 @@ if not plot_data.empty:
     fig_cum.add_hline(y=0, line_color="white")
     fig_cum.add_vline(x=plot_data["Date"].min(), line_color="white")
 
-    # Add annotation box (top-right)
+    # Add annotation box
     fig_cum.add_annotation(
         text="<br>".join(remaining_space_labels),
         xref="paper", yref="paper",
-        x=1.00,  # Slightly outside the right edge
-        y=0.08,  # Slightly above the top edge
+        x=0.06,  # Slightly outside the right edge
+        y=1.00,  # Slightly above the top edge
         showarrow=False,
         font=dict(size=14),
         align="left",
